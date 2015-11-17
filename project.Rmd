@@ -1,0 +1,152 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Trieu Tran"
+date: "November 14, 2015"
+output: html_document
+---
+### Summary
+
+This is the course project for the Practical Machine Learning class. The goal of this project is to build a prediction model for "how well" people do a simple "Unilateral Dumbbell Biceps Curl" exercise.  The data for buidling the model was collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The quality of these participants' exercise was recorded and was categorized as Class A, Class B, Class C, Class D and Class E.  Class A corresponds to correct execution of the "Biceps Curl" exercise, the other 4 classes corresponds to incorrect executions with common mistakes. 
+
+First, we will run different machine learning algorithms such as GLM, GBM and Random Forest on the training dataset to pick up the best prediction model.  Then we will apply our best model on test data set to validate the prediction.
+
+####Data Source
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Many thanks to the group of researchers who let us use their dataset for this project.
+<em>Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Activity Recognition of Weight Lifting Exercises.](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.</em>
+
+More information is available from the website here: [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset). 
+
+###Loading libraries and data
+
+```{r echo=TRUE, cache=TRUE, message=FALSE}
+## loading libraries
+library(caret)
+library(randomForest)
+library(doParallel)
+
+registerDoParallel()
+
+## checking existence of a folder named "figure", if not then creating one to store plot figures
+if (!file.exists("data")){
+    dir.create("data")
+}
+
+figureDir <- 'figure'
+if (!file.exists(figureDir)){
+    dir.create(figureDir)
+} 
+
+## downloading csv files
+if (!file.exists(file.path("data", "pml-training.csv"))) {
+        message("Downloading training file")
+        download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = file.path("data", "pml-training.csv"))
+}
+
+if (!file.exists(file.path("data", "pml-testing.csv"))) {
+        message("Downloading testing file")
+        download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = file.path("data", "pml-testing.csv"))
+}
+
+##loading training and testing data from csv files
+message("reading raw csv files")
+rawTraining <- read.csv(file.path("data", "pml-training.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
+rawTesting <- read.csv(file.path("data", "pml-testing.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
+
+set.seed(124567)
+inTrain <- createDataPartition(y=rawTraining$classe, p=0.6, list=FALSE)
+training <- rawTraining[inTrain, ]
+testing <- rawTraining[-inTrain, ]
+```
+
+### Cleaning Data
+```{r echo=TRUE, cache=TRUE, message=FALSE}
+## counting NAs in each column, and returning a list of columns which have  > 80% NAs
+naList <- data.frame(ord = integer(0), name = character(0), cnNA = integer(0))
+for(j in 1:length(training)) {
+        if(sum(is.na(training[, j])) / length(training[,j]) > 0.8) {
+                naList <- rbind(naList, data.frame(ord = j, name = names(training)[j], cnNA = sum(is.na(training[, j]))))
+                #print(names(rawTraining)[j])
+        }
+}
+
+## remove columns from the 1st to 7th ()
+removeCols <- c(1:7, naList$ord)
+
+training <- training[-removeCols]
+testing <- testing[-removeCols]
+
+## eliminating highly correlated variables
+correlationMatrix <- cor(training[-53])
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.5)
+
+training1 = training[-highlyCorrelated]
+testing1 = testing[-highlyCorrelated]
+```
+
+### Training
+#### GBM with 22 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+## declaring fit control
+fitControl <- trainControl(
+        method = "cv",
+        number = 10)
+
+fitGBM <- train(classe ~ ., method = "gbm", data = training1, verbose = FALSE, trControl = fitControl)
+predictGBM <- predict(fitGBM, testing1[, -22])
+confusionGBM <- confusionMatrix(testing1[, 22], predictGBM)
+print(confusionGBM)
+```
+
+#### GBM with 53 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+registerDoParallel()
+fitGBMBig <- train(classe ~ ., method = "gbm", data = training, verbose = FALSE, trControl = fitControl)
+predictGBMBig <- predict(fitGBMBig, testing[, -53])
+confusionGBMBig <- confusionMatrix(testing[, 53], predictGBMBig)
+print(confusionGBMBig)
+```
+
+#### Random Forest with 22 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+registerDoParallel()
+fitControl2 <- trainControl(
+        method = "repeatedcv",
+        number = 10,
+        repeats = 3)
+fitRF <- train(classe~ ., data=training1, method="rf", trControl=fitControl2, verbose = FALSE)
+predictRF <- predict(fitRF, newdata = testing1)
+confusionRF <- confusionMatrix(predictRF, testing1$classe)
+print(confusionRF)
+```
+
+#### Random Forest with 53 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+registerDoParallel()
+fitControl3 <- trainControl(
+        method = "cv",
+        number = 10,
+        repeats = 3)
+fitMoreRF <- train(classe~ ., data=training, method="rf", trControl=fitControl3, verbose = FALSE)
+predictMoreRF <- predict(fitMoreRF, newdata = testing)
+confusionMoreRF <- confusionMatrix(predictMoreRF, testing$classe)
+print(confusionMoreRF)
+```
+
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+## comparing models
+# modelList <- list(GBM = fitGBM,
+#                   GBM53 = fitGBMBig,
+#                   RF = fitRF,
+#                   RF53 = fitMoreRF)
+# 
+# resamps <- resamples(modelList)
+# trellis.par.set(theme1)
+# bwplot(resamps, layout = c(3, 1))
+```
