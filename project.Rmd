@@ -58,12 +58,14 @@ if (!file.exists(file.path("data", "pml-testing.csv"))) {
 message("reading raw csv files")
 rawTraining <- read.csv(file.path("data", "pml-training.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
 rawTesting <- read.csv(file.path("data", "pml-testing.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
-str(training, list.len=30)
-table(training$classe)
+
 set.seed(124567)
 inTrain <- createDataPartition(y=rawTraining$classe, p=0.6, list=FALSE)
 training <- rawTraining[inTrain, ]
 testing <- rawTraining[-inTrain, ]
+
+str(training, list.len=30)
+table(training$classe)
 ```
 
 ### Cleaning Data
