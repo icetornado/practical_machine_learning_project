@@ -42,43 +42,74 @@ testing1 = testing[-highlyCorrelated]
 
 ## declaring fit control
 fitControl <- trainControl(
-        method = "cv",
-        number = 10)
+        method = "repeatedcv",
+        number = 10,
+        repeats = 3)
+
+## test rpart
+fitRPart <- train(classe ~ ., method = "rpart", data = training1)
+predictRPart <- predict(fitRPart, testing[, -22])
+confusionRPart <- confusionMatrix(testing1[, 22], predictRPart)
+## results : Accuracy : 0.5038   -  Kappa : 0.3569   
+
+fitRPartBig <- train(classe ~ ., method = "rpart", data = training)
+predictRPartBig <- predict(fitRPartBig, testing[, -53])
+confusionRPartBig <- confusionMatrix(testing[, 53], predictRPartBig)
+##  Accuracy : 0.4992  - Kappa : 0.3455     
 
 ## gbm skinny
 fitGBM <- train(classe ~ ., method = "gbm", data = training1, verbose = FALSE, trControl = fitControl)
 predictGBM <- predict(fitGBM, testing1[, -22])
 confusionGBM <- confusionMatrix(testing1[, 22], predictGBM)
 
-trellis.par.set(caretTheme())
-plot(fitGBM, metric = "Kappa")
+#trellis.par.set(caretTheme())
+#plot(fitGBM, metric = "Kappa")
 ## -- Accuracy : 0.879         -    Kappa : 0.8471                  running time 5 mins
 
-## gbm fat - failed with repeatCV
-gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9),
-                        n.trees = (1:30)*50,
-                        shrinkage = 0.1,
-                        n.minobsinnode = 20)
-fitGBMFat <- train(classe ~ ., method = "gbm", data = training, verbose = FALSE, trControl = fitControl, tuneGrid = gbmGrid)
-predictGBMFat <- predict(fitGBMFat, testing[, -53])
-confusionGBMFat <- confusionMatrix(testing[, 53], predictGBMFat)
-## Accuracy : 0.9601  --- Kappa : 0.9495  with no grid tuning 
+## gbm fat
+fitGBMBig <- train(classe ~ ., method = "gbm", data = training, verbose = FALSE, trControl = fitControl)
+predictGBMBig <- predict(fitGBMBig, testing[, -53])
+confusionGBMBig <- confusionMatrix(testing[, 53], predictGBMBig)
+
+## Accuracy : 0.9601  ---  Kappa : 0.9507    with no grid tuning 
 
 ##random forest slim
-fitControl2 <- trainControl(
-        method = "repeatedcv",
-        number = 10,
-        repeats = 3)
-fitRF <- train(classe~ ., data=training1, method="rf", trControl=fitControl2, verbose = FALSE)
+# fitControl2 <- trainControl(
+#         method = "repeatedcv",
+#         number = 10,
+#         repeats = 3)
+fitRF <- train(classe~ ., data=training1, method="rf", trControl=fitControl, verbose = FALSE)
 predictRF <- predict(fitRF, newdata = testing1)
 confusionRF <- confusionMatrix(predictRF, testing1$classe)
 
-trellis.par.set(caretTheme())
+#trellis.par.set(caretTheme())
 plot(fitRF, metric = "Kappa")
+
+plot(varImp(fitRF))
+transparentTheme(trans = .4)
+featurePlot(x = training1[, c("pitch_forearm", "magnet_belt_y", "roll_dumbbell", "roll_forearm")],
+            y = training1$classe,
+            plot = "pairs",
+            ## Add a key at the top
+            auto.key = list(columns = 4))
+
+featurePlot(x = training1[, c("pitch_forearm", "magnet_belt_y", "roll_dumbbell", "roll_forearm")],
+            y = training1$classe,
+            plot = "box",
+            ## Pass in options to bwplot() 
+            scales = list(y = list(relation="free"),
+                          x = list(rot = 90)),
+            layout = c(4,1 ),
+            auto.key = list(columns = 4))
+
+qplot(pitch_forearm, gyros_arm_y, colour=classe, data=training1)
+
+library("GGally")
+ggpairs(training1[, c("pitch_forearm", "magnet_belt_y", "roll_dumbbell", "roll_forearm")], color = "classe", data = training1)
 ## Accuracy : 0.9806   -  Kappa : 0.9755      Runtime = 5 mins
 
 ## random forest all
-fitMoreRF <- train(classe~ ., data=training, method="rf", trControl=fitControl2, verbose = FALSE)
+fitMoreRF <- train(classe~ ., data=training, method="rf", trControl=fitControl, verbose = FALSE)
 predictMoreRF <- predict(fitMoreRF, newdata = testing)
 confusionMoreRF <- confusionMatrix(predictMoreRF, testing$classe)
 ##  Accuracy : 0.9922       -   Kappa : 0.9902    Runtime = 8 mins   

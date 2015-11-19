@@ -6,9 +6,9 @@ output: html_document
 ---
 ### Summary
 
-This is the course project for the Practical Machine Learning class. The goal of this project is to build a prediction model for "how well" people do a simple "Unilateral Dumbbell Biceps Curl" exercise.  The data for buidling the model was collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The quality of these participants' exercise was recorded and was categorized as Class A, Class B, Class C, Class D and Class E.  Class A corresponds to correct execution of the "Biceps Curl" exercise, the other 4 classes corresponds to incorrect executions with common mistakes. 
+This is the course project for the Practical Machine Learning class. The goal of this project is to build a prediction model for "how well" people do a simple "Unilateral Dumbbell Biceps Curl" exercise.  The data for buidling the model was collected from sensors attached to the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The quality of these participants' exercise was recorded and was categorized as Class A, Class B, Class C, Class D and Class E.  Class A corresponds to correct execution of the "Biceps Curl" exercise, the other 4 classes corresponds to incorrect executions with common mistakes. 
 
-First, we will run different machine learning algorithms such as GLM, GBM and Random Forest on the training dataset to pick up the best prediction model.  Then we will apply our best model on test data set to validate the prediction.
+The report describes how we performed data cleaning up; how we selected different machine learning algorithms such as RPart, GBM and Random Forest on the training dataset; how we determined the best prediction model and expected out of sample error.  To validate our prediction model, we ran our model against the test data of 20 cases; and successfully got 20 correct predictions.
 
 ####Data Source
 
@@ -58,7 +58,8 @@ if (!file.exists(file.path("data", "pml-testing.csv"))) {
 message("reading raw csv files")
 rawTraining <- read.csv(file.path("data", "pml-training.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
 rawTesting <- read.csv(file.path("data", "pml-testing.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
-
+str(training, list.len=30)
+table(training$classe)
 set.seed(124567)
 inTrain <- createDataPartition(y=rawTraining$classe, p=0.6, list=FALSE)
 training <- rawTraining[inTrain, ]
@@ -91,13 +92,33 @@ testing1 = testing[-highlyCorrelated]
 ```
 
 ### Training
-#### GBM with 22 variables
+#### RPart with 22 variables
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
 ## declaring fit control
 fitControl <- trainControl(
-        method = "cv",
-        number = 10)
+        method = "repeatedcv",
+        number = 10,
+        repeats = 3)
 
+registerDoParallel()
+fitRPart <- train(classe ~ ., method = "rpart", data = training1, trControl = fitControl)
+predictRPart <- predict(fitRPart, testing[, -22])
+confusionRPart <- confusionMatrix(testing1[, 22], predictRPart)
+print(confusionRPart)
+```
+
+#### RPart with 53 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+registerDoParallel()
+fitRPartBig <- train(classe ~ ., method = "rpart", data = training, trControl = fitControl)
+predictRPartBig <- predict(fitRPartBig, testing[, -53])
+confusionRPartBig <- confusionMatrix(testing[, 53], predictRPartBig)
+print(confusionRPartBig)
+```
+
+#### GBM with 22 variables
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+registerDoParallel()
 fitGBM <- train(classe ~ ., method = "gbm", data = training1, verbose = FALSE, trControl = fitControl)
 predictGBM <- predict(fitGBM, testing1[, -22])
 confusionGBM <- confusionMatrix(testing1[, 22], predictGBM)
@@ -116,11 +137,7 @@ print(confusionGBMBig)
 #### Random Forest with 22 variables
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
 registerDoParallel()
-fitControl2 <- trainControl(
-        method = "repeatedcv",
-        number = 10,
-        repeats = 3)
-fitRF <- train(classe~ ., data=training1, method="rf", trControl=fitControl2, verbose = FALSE)
+fitRF <- train(classe~ ., data=training1, method="rf", trControl=fitControl, verbose = FALSE)
 predictRF <- predict(fitRF, newdata = testing1)
 confusionRF <- confusionMatrix(predictRF, testing1$classe)
 print(confusionRF)
@@ -129,24 +146,43 @@ print(confusionRF)
 #### Random Forest with 53 variables
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
 registerDoParallel()
-fitControl3 <- trainControl(
-        method = "cv",
-        number = 10,
-        repeats = 3)
-fitMoreRF <- train(classe~ ., data=training, method="rf", trControl=fitControl3, verbose = FALSE)
+fitMoreRF <- train(classe~ ., data=training, method="rf", trControl=fitControl, verbose = FALSE)
 predictMoreRF <- predict(fitMoreRF, newdata = testing)
 confusionMoreRF <- confusionMatrix(predictMoreRF, testing$classe)
 print(confusionMoreRF)
 ```
 
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
-## comparing models
-# modelList <- list(GBM = fitGBM,
-#                   GBM53 = fitGBMBig,
-#                   RF = fitRF,
-#                   RF53 = fitMoreRF)
-# 
-# resamps <- resamples(modelList)
-# trellis.par.set(theme1)
-# bwplot(resamps, layout = c(3, 1))
+# comparing models
+modelList <- list(
+        RPart = fitRPart,
+        RPart53 = fitRPartBig,
+        GBM = fitGBM,
+        GBM53 = fitGBMBig,
+        RF = fitRF,
+        RF53 = fitMoreRF)
+
+resamps <- resamples(modelList)
+dotplot(resamps, layout = c(3, 1))
 ```
+
+### Project submission
+```{r cache=TRUE, echo=TRUE, message=FALSE}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=file.path("results",filename),quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+
+for(j in 1:length(modelList)) {
+        tP <- predict(modelList[j],  newdata = rawTesting)
+        print(tP)
+        if(j == 6) {      ## the last and the best model
+                pml_write_files(tP)
+        }
+}
+
+```
+http://icetornado.github.io/practical_machine_learning_project/
