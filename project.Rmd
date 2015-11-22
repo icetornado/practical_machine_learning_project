@@ -6,9 +6,9 @@ output: html_document
 ---
 ### Summary
 
-This is the course project for the Practical Machine Learning class. The goal of this project is to build a prediction model for "how well" people do a simple "Unilateral Dumbbell Biceps Curl" exercise.  The data for buidling the model was collected from sensors attached to the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The quality of these participants' exercise was recorded and was categorized as Class A, Class B, Class C, Class D and Class E.  Class A corresponds to correct execution of the "Biceps Curl" exercise, the other 4 classes corresponds to incorrect executions with common mistakes. 
+This is the course project for the Practical Machine Learning class. The goal of this project is to build a prediction model for "how well" people do a simple "Unilateral Dumbbell Biceps Curl" exercise.  The data for buidling the model was collected from sensors attached to the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform dumbell lifts correctly and incorrectly in 5 different ways. The quality of these participants' exercises were recorded and were categorized as Class A, Class B, Class C, Class D and Class E.  Class A corresponds to correct execution of the "Biceps Curl" exercise, the other 4 classes correspond to incorrect executions with common mistakes. 
 
-The report describes how we perform data cleaning-up; how we select different machine learning algorithms such as RPart, GBM and Random Forest on the training dataset; and how we determine the best prediction model and expected out-of-sample error.  To validate our prediction model, we run our model against the test data of 20 cases; and successfully get 20 correct predictions.
+The report describes how we perform data clean-up; how we apply different machine learning algorithms such as RPart, GBM and Random Forest on the training dataset; and how we determine the best prediction model and expected out-of-sample error.  To validate our prediction model, we run our model against the test data of 20 cases, and successfully get 20 correct predictions.
 
 <strong>Data Source</strong>
 
@@ -21,7 +21,7 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 We would like to thank a group of researchers who let us use their dataset for this project.
 <em>Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Activity Recognition of Weight Lifting Exercises.](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.</em>
 
-More information is available from the website here: [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset). 
+More information is available here: [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset). 
 
 ###Data Exploration
 
@@ -62,7 +62,7 @@ rawTraining <- read.csv(file.path("data", "pml-training.csv"), stringsAsFactors=
 rawTesting <- read.csv(file.path("data", "pml-testing.csv"), stringsAsFactors=FALSE, na.strings = c("NA","#DIV/0!",""))
 ```
 
-The <strong>caret</strong> package takes major part of creating predictive models for this project.  We first use the package's <strong>createDataPartition</strong> function to split (with split ratio 60/40) data from reading the training csv file into two datasets which are named as <strong>training</strong> and <strong>testing</strong>.
+We use the <strong>caret</strong> package for the major part of creating predictive models for this project.  We first use the package's <strong>createDataPartition</strong> function to split data (with a split ratio 60/40) read from the training csv file into two datasets, which are named as <strong>training</strong> and <strong>testing</strong>.
 
 ```{r echo=TRUE, cache=TRUE, message=FALSE}
 set.seed(124567)
@@ -75,9 +75,9 @@ table(training$classe)
 ```
 
 ### Data Cleaning
-We inspect our training data set and find out there is quite a number of variables which store mostly NAs.  These variables don't contribute anything for our model building.  Therefore, we go through the list of variables, and remove ones which have NAs made up more than 80% of its data. In addition, we also remove the first 7 variables because they are not actual movement data from the sensors. 
+We inspect our <strong>training</strong> data set and discover that there is quite a number of variables that have mostly NAs.  These variables don't contribute anything toward buidling our models.  Therefore, we go through the list of variables, and remove ones in which NAs made up more than 80% of its data. In addition, we also remove the first 7 variables because they are not actual movement data from the sensors. 
 
-A very handy function of the <strong>caret</strong> package, <strong>findCorrelation</strong>, helps us to find highly corelated variables.  We use the function with a cutoff setting at 0.5; and get a list a variables which we can remove from the data.  However, for testing whether "the more variables is the better", we keep the original 53-variable training and test dataset (named <strong>training</strong> and <strong>testing</strong>). We also create two new 22-variable datasets with exclusion of highly related variables: <strong>training1</strong> and <strong>testing1</strong>.
+A very handy function of the <strong>caret</strong> package, <strong>findCorrelation</strong>, helps us to identify highly corelated variables.  We use the function with a cutoff setting at 0.5; and get a list a variables which we can remove from the data.  However, for testing whether "the more variables is the more accuracy model", we keep the original 53-variable training and test dataset (named <strong>training</strong> and <strong>testing</strong>). We also create two new 22-variable datasets with the exclusion of the highly related variables: <strong>training1</strong> and <strong>testing1</strong>.
 
 ```{r echo=TRUE, cache=TRUE, message=FALSE}
 ## counting NAs in each column, and returning a list of columns which have  > 80% NAs
@@ -104,7 +104,7 @@ testing1 = testing[-highlyCorrelated]
 
 ### Models Training
 
-We consequentially train our models with <strong>Decision Tree</strong>, <strong>Adaptive Boosting</strong> and <strong>Random Forest</strong> algorithm on both <strong>training</strong> and <strong>training1</strong> dataset.  Each iteration of model training is set to be repeated 3 times and to be 10-fold cross-validation.  
+We consecutive train our models with <strong>Decision Tree</strong>, <strong>Adaptive Boosting</strong> and <strong>Random Forest</strong> algorithms on both <strong>training</strong> and <strong>training1</strong> datasets.  Each iteration of model training is set to be repeated 3 times and to be 10-fold cross-validation.  
 
 #### Decision Tree with 22 variables
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
@@ -181,13 +181,13 @@ resamps <- resamples(modelList)
 dotplot(resamps, layout = c(3, 1))
 ```
 
-The Random Forest algorithm yields the best results with accuracy rates are <strong>98.14%</strong> on the model built of 22 variables  (named as <strong>RF</strong>) and <strong>99.22%</strong> on the model built of 53 variables (named as <strong>RF53</strong>).  We decide to go with the model <strong>RF</strong> with 22 variables because of its simplicity and its acceptable accuracy.
+The Random Forest algorithm yields the best results with an accuracy rates of <strong>98.14%</strong> on the model built of 22 variables  (named <strong>RF</strong>) and an accuracy rate of <strong>99.22%</strong> on the model built of 53 variables (named <strong>RF53</strong>).  We decide to choose the model <strong>RF</strong> with 22 variables because of its simplicity and its acceptable accuracy.
 
 <strong>Estimate of out-of-sample error</strong> is 100% - 98.14% = <strong>1.86%</strong>
 
 ### Project submission
 
-We conduct testing on all models againts a dataset of 20 observation and print out the test results as follows:
+We conduct testing on all models againts a dataset of 20 observations and print out the test results as follows:
 
 ```{r cache=TRUE, echo=TRUE, message=FALSE}
 pml_write_files = function(x){
@@ -207,5 +207,5 @@ for(j in 1:length(modelList)) {
 }
 
 ```
-From the above test outcomes, we can see that the model <strong>RF</strong> and the model <strong>RF53</strong> give identical results. As mentioned earlier we pick our second best model to generate text files to submit to the Coursera's server.  The feedback score from the server is a perfect 20/20.
+From the above test outcomes, we can see that the model <strong>RF</strong> and the model <strong>RF53</strong> give identical results. As mentioned earlier we choose our second best model to generate text files to submit to the Coursera's server.  The feedback score from the server is a perfect 20/20.
 

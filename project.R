@@ -36,7 +36,7 @@ testing$classe <- as.factor(testing$classe)
 
 ## remove highly correlated vars
 correlationMatrix <- cor(training[-53])
-highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.5)
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8)
 training1 = training[-highlyCorrelated]
 testing1 = testing[-highlyCorrelated]
 
